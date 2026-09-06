@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/reservations")
@@ -27,6 +28,7 @@ public class ReservationController {
     // CREATE RESERVATION
     // USER + ADMIN
     // =========================================================
+
     @PostMapping
     public ReservationResponse createReservation(
             @Valid @RequestBody ReservationRequest request,
@@ -45,30 +47,11 @@ public class ReservationController {
     // GET MY RESERVATIONS
     // USER + ADMIN
     // =========================================================
+
     @GetMapping("/my")
     public Page<ReservationResponse> getMyReservations(
             Authentication authentication,
-
-            @RequestParam(defaultValue = "0")
-            int page,
-
-            @RequestParam(defaultValue = "10")
-            int size,
-
-            @RequestParam(required = false)
-            String sortBy,
-
-            @RequestParam(defaultValue = "asc")
-            String direction) {
-
-        validatePagination(page, size);
-
-        Pageable pageable = createPageable(
-                page,
-                size,
-                sortBy,
-                direction
-        );
+            Pageable pageable) {
 
         String username = authentication.getName();
 
@@ -80,43 +63,10 @@ public class ReservationController {
 
 
     // =========================================================
-    // GET ALL RESERVATIONS
-    // ADMIN
-    // =========================================================
-    @GetMapping
-    public Page<ReservationResponse> getAllReservations(
-
-            @RequestParam(defaultValue = "0")
-            int page,
-
-            @RequestParam(defaultValue = "10")
-            int size,
-
-            @RequestParam(required = false)
-            String sortBy,
-
-            @RequestParam(defaultValue = "asc")
-            String direction) {
-
-        validatePagination(page, size);
-
-        Pageable pageable = createPageable(
-                page,
-                size,
-                sortBy,
-                direction
-        );
-
-        return reservationService.getAllReservations(
-                pageable
-        );
-    }
-
-
-    // =========================================================
-    // FILTER RESERVATIONS
+    // FILTER + PAGINATION + SORTING
     // USER + ADMIN
     // =========================================================
+
     @GetMapping("/filter")
     public Page<ReservationResponse> getReservationsWithFilters(
 
@@ -141,71 +91,6 @@ public class ReservationController {
             @RequestParam(defaultValue = "asc")
             String direction) {
 
-        validatePagination(page, size);
-
-        // Validate price range
-        if (minPrice != null
-                && maxPrice != null
-                && minPrice.compareTo(maxPrice) > 0) {
-
-            throw new IllegalArgumentException(
-                    "Minimum price cannot be greater than maximum price"
-            );
-        }
-
-        Pageable pageable = createPageable(
-                page,
-                size,
-                sortBy,
-                direction
-        );
-
-        return reservationService.getReservationsWithFilters(
-                status,
-                minPrice,
-                maxPrice,
-                pageable
-        );
-    }
-
-
-    // =========================================================
-    // GET RESERVATION BY ID
-    // USER + ADMIN
-    // =========================================================
-    @GetMapping("/{id}")
-    public ReservationResponse getReservationById(
-            @PathVariable Long id) {
-
-        return reservationService.getReservationById(id);
-    }
-
-
-    // =========================================================
-    // CANCEL RESERVATION
-    // USER + ADMIN
-    // =========================================================
-    @PutMapping("/{id}/cancel")
-    public ReservationResponse cancelReservation(
-            @PathVariable Long id,
-            Authentication authentication) {
-
-        String username = authentication.getName();
-
-        return reservationService.cancelReservation(
-                id,
-                username
-        );
-    }
-
-
-    // =========================================================
-    // PAGINATION VALIDATION
-    // =========================================================
-    private void validatePagination(
-            int page,
-            int size) {
-
         if (page < 0) {
             throw new IllegalArgumentException(
                     "Page must be 0 or greater"
@@ -218,58 +103,101 @@ public class ReservationController {
             );
         }
 
-        if (size > 100) {
-            throw new IllegalArgumentException(
-                    "Size cannot be greater than 100"
+        Sort sort = Sort.unsorted();
+
+        if (sortBy != null && !sortBy.isBlank()) {
+
+            Sort.Direction sortDirection =
+                    direction.equalsIgnoreCase("desc")
+                            ? Sort.Direction.DESC
+                            : Sort.Direction.ASC;
+
+            sort = Sort.by(
+                    sortDirection,
+                    sortBy
             );
         }
+
+        Pageable pageable =
+                PageRequest.of(
+                        page,
+                        size,
+                        sort
+                );
+
+        return reservationService.getReservationsWithFilters(
+                status,
+                minPrice,
+                maxPrice,
+                pageable
+        );
     }
 
 
     // =========================================================
-    // CREATE PAGEABLE
+    // GET ALL RESERVATIONS
+    // ADMIN
     // =========================================================
-    private Pageable createPageable(
-            int page,
-            int size,
-            String sortBy,
-            String direction) {
 
-        // No sorting requested
-        if (sortBy == null || sortBy.isBlank()) {
+    @GetMapping
+    public List<ReservationResponse> getAllReservations() {
 
-            return PageRequest.of(
-                    page,
-                    size
-            );
-        }
+        return reservationService.getAllReservations();
+    }
 
-        Sort.Direction sortDirection;
 
-        if (direction.equalsIgnoreCase("desc")) {
+    // =========================================================
+    // GET RESERVATION BY ID
+    // USER + ADMIN
+    // =========================================================
 
-            sortDirection = Sort.Direction.DESC;
+    @GetMapping("/{id}")
+    public ReservationResponse getReservationById(
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        } else if (direction.equalsIgnoreCase("asc")) {
+        String username = authentication.getName();
 
-            sortDirection = Sort.Direction.ASC;
+        boolean isAdmin =
+                authentication.getAuthorities()
+                        .stream()
+                        .anyMatch(authority ->
+                                authority.getAuthority()
+                                        .equals("ROLE_ADMIN")
+                        );
 
-        } else {
-
-            throw new IllegalArgumentException(
-                    "Direction must be 'asc' or 'desc'"
-            );
-        }
-
-        Sort sort = Sort.by(
-                sortDirection,
-                sortBy
+        return reservationService.getReservationById(
+                id,
+                username,
+                isAdmin
         );
+    }
 
-        return PageRequest.of(
-                page,
-                size,
-                sort
+
+    // =========================================================
+    // CANCEL RESERVATION
+    // USER + ADMIN
+    // =========================================================
+
+    @PutMapping("/{id}/cancel")
+    public ReservationResponse cancelReservation(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String username = authentication.getName();
+
+        boolean isAdmin =
+                authentication.getAuthorities()
+                        .stream()
+                        .anyMatch(authority ->
+                                authority.getAuthority()
+                                        .equals("ROLE_ADMIN")
+                        );
+
+        return reservationService.cancelReservation(
+                id,
+                username,
+                isAdmin
         );
     }
 }

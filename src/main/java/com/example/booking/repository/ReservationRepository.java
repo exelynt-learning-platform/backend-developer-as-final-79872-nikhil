@@ -8,23 +8,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public interface ReservationRepository
         extends JpaRepository<Reservation, Long> {
 
-    // =========================================================
-    // FIND RESERVATIONS OF A USER
-    // =========================================================
     Page<Reservation> findByUserId(
             Long userId,
             Pageable pageable
     );
 
 
-    // =========================================================
-    // CHECK OVERLAPPING RESERVATION
-    // =========================================================
     @Query("""
             SELECT COUNT(r) > 0
             FROM Reservation r
@@ -40,9 +35,6 @@ public interface ReservationRepository
     );
 
 
-    // =========================================================
-    // FILTER + PAGINATION + SORTING
-    // =========================================================
     @Query("""
             SELECT r
             FROM Reservation r
@@ -52,8 +44,8 @@ public interface ReservationRepository
             """)
     Page<Reservation> findWithFilters(
             @Param("status") ReservationStatus status,
-            @Param("minPrice") java.math.BigDecimal minPrice,
-            @Param("maxPrice") java.math.BigDecimal maxPrice,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
             Pageable pageable
     );
 }

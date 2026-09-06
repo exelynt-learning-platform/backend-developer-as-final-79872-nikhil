@@ -13,10 +13,12 @@ import com.example.booking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,12 +31,14 @@ public class ReservationService {
 
     // =========================================================
     // CREATE RESERVATION
+    // USER + ADMIN
     // =========================================================
+
     public ReservationResponse createReservation(
             ReservationRequest request,
             String username) {
 
-        // Find logged-in user from JWT
+        // Find logged-in user
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
@@ -69,12 +73,11 @@ public class ReservationService {
 
         // Check overlapping reservation
         boolean overlapping =
-                reservationRepository
-                        .existsOverlappingReservation(
-                                resource.getId(),
-                                request.getStartTime(),
-                                request.getEndTime()
-                        );
+                reservationRepository.existsOverlappingReservation(
+                        resource.getId(),
+                        request.getStartTime(),
+                        request.getEndTime()
+                );
 
 
         if (overlapping) {
@@ -96,7 +99,7 @@ public class ReservationService {
                 .build();
 
 
-        // Save reservation
+        // Save
         Reservation savedReservation =
                 reservationRepository.save(reservation);
 
@@ -108,8 +111,8 @@ public class ReservationService {
     // =========================================================
     // GET MY RESERVATIONS
     // USER + ADMIN
-    // PAGINATION + SORTING
     // =========================================================
+
     public Page<ReservationResponse> getMyReservations(
             String username,
             Pageable pageable) {
@@ -120,20 +123,21 @@ public class ReservationService {
 
 
         return reservationRepository
-                .findByUserId(
-                        user.getId(),
-                        pageable
-                )
+                .findByUserId(user.getId(), pageable)
                 .map(this::mapToResponse);
     }
 
 
     // =========================================================
     // GET RESERVATION BY ID
-    // USER + ADMIN
+    // USER CAN ONLY SEE OWN
+    // ADMIN CAN SEE ANY
     // =========================================================
+
     public ReservationResponse getReservationById(
-            Long id) {
+            Long id,
+            String username,
+            boolean isAdmin) {
 
         Reservation reservation =
                 reservationRepository.findById(id)
@@ -143,17 +147,32 @@ public class ReservationService {
                                 ));
 
 
+        // USER OWNERSHIP CHECK
+        if (!isAdmin &&
+                !reservation.getUser()
+                        .getUsername()
+                        .equals(username)) {
+
+            throw new AccessDeniedException(
+                    "You are not allowed to access this reservation"
+            );
+        }
+
+
         return mapToResponse(reservation);
     }
 
 
     // =========================================================
     // CANCEL RESERVATION
-    // USER + ADMIN
+    // USER CAN CANCEL OWN
+    // ADMIN CAN CANCEL ANY
     // =========================================================
+
     public ReservationResponse cancelReservation(
             Long id,
-            String username) {
+            String username,
+            boolean isAdmin) {
 
         // Find reservation
         Reservation reservation =
@@ -164,18 +183,19 @@ public class ReservationService {
                                 ));
 
 
-        // Check ownership
-        if (!reservation.getUser()
-                .getUsername()
-                .equals(username)) {
+        // USER OWNERSHIP CHECK
+        if (!isAdmin &&
+                !reservation.getUser()
+                        .getUsername()
+                        .equals(username)) {
 
-            throw new RuntimeException(
-                    "You can only cancel your own reservation"
+            throw new AccessDeniedException(
+                    "You are not allowed to cancel this reservation"
             );
         }
 
 
-        // Check if already cancelled
+        // Check already cancelled
         if (reservation.getStatus()
                 == ReservationStatus.CANCELLED) {
 
@@ -191,7 +211,7 @@ public class ReservationService {
         );
 
 
-        // Save updated reservation
+        // Save
         Reservation updatedReservation =
                 reservationRepository.save(reservation);
 
@@ -202,20 +222,21 @@ public class ReservationService {
 
     // =========================================================
     // ADMIN - GET ALL RESERVATIONS
-    // PAGINATION + SORTING
     // =========================================================
-    public Page<ReservationResponse> getAllReservations(
-            Pageable pageable) {
 
-        return reservationRepository
-                .findAll(pageable)
-                .map(this::mapToResponse);
+    public List<ReservationResponse> getAllReservations() {
+
+        return reservationRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
 
     // =========================================================
     // FILTER + PAGINATION + SORTING
     // =========================================================
+
     public Page<ReservationResponse> getReservationsWithFilters(
             ReservationStatus status,
             BigDecimal minPrice,
@@ -236,6 +257,7 @@ public class ReservationService {
     // =========================================================
     // ENTITY → RESPONSE DTO
     // =========================================================
+
     private ReservationResponse mapToResponse(
             Reservation reservation) {
 

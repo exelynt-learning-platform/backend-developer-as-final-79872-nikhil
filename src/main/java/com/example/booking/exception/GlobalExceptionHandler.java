@@ -2,6 +2,7 @@ package com.example.booking.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,7 +15,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     // =========================================================
-    // RESOURCE ALREADY BOOKED
+    // RESOURCE ALREADY BOOKED - 409 CONFLICT
     // =========================================================
 
     @ExceptionHandler(ResourceAlreadyBookedException.class)
@@ -35,7 +36,7 @@ public class GlobalExceptionHandler {
 
 
     // =========================================================
-    // VALIDATION ERRORS
+    // VALIDATION ERRORS - 400 BAD REQUEST
     // =========================================================
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -68,7 +69,28 @@ public class GlobalExceptionHandler {
 
 
     // =========================================================
-    // RUNTIME EXCEPTIONS
+    // ACCESS DENIED - 403 FORBIDDEN
+    // =========================================================
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(
+            AccessDeniedException exception) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.FORBIDDEN.value());
+        response.put("error", "Forbidden");
+        response.put("message", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(response);
+    }
+
+
+    // =========================================================
+    // RUNTIME EXCEPTIONS - 400 BAD REQUEST
     // =========================================================
 
     @ExceptionHandler(RuntimeException.class)
@@ -89,7 +111,7 @@ public class GlobalExceptionHandler {
 
 
     // =========================================================
-    // ALL OTHER EXCEPTIONS
+    // ALL OTHER EXCEPTIONS - 500 INTERNAL SERVER ERROR
     // =========================================================
 
     @ExceptionHandler(Exception.class)
