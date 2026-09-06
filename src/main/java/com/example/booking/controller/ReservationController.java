@@ -63,8 +63,20 @@ public class ReservationController {
 
 
     // =========================================================
+    // GET ALL RESERVATIONS
+    // ADMIN
+    // =========================================================
+
+    @GetMapping
+    public List<ReservationResponse> getAllReservations() {
+
+        return reservationService.getAllReservations();
+    }
+
+
+    // =========================================================
     // FILTER + PAGINATION + SORTING
-    // USER + ADMIN
+    // ADMIN
     // =========================================================
 
     @GetMapping("/filter")
@@ -103,6 +115,32 @@ public class ReservationController {
             );
         }
 
+        if (minPrice != null &&
+                minPrice.compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new IllegalArgumentException(
+                    "Minimum price cannot be negative"
+            );
+        }
+
+        if (maxPrice != null &&
+                maxPrice.compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new IllegalArgumentException(
+                    "Maximum price cannot be negative"
+            );
+        }
+
+        if (minPrice != null &&
+                maxPrice != null &&
+                minPrice.compareTo(maxPrice) > 0) {
+
+            throw new IllegalArgumentException(
+                    "Minimum price cannot be greater than maximum price"
+            );
+        }
+
+
         Sort sort = Sort.unsorted();
 
         if (sortBy != null && !sortBy.isBlank()) {
@@ -118,6 +156,7 @@ public class ReservationController {
             );
         }
 
+
         Pageable pageable =
                 PageRequest.of(
                         page,
@@ -125,24 +164,13 @@ public class ReservationController {
                         sort
                 );
 
+
         return reservationService.getReservationsWithFilters(
                 status,
                 minPrice,
                 maxPrice,
                 pageable
         );
-    }
-
-
-    // =========================================================
-    // GET ALL RESERVATIONS
-    // ADMIN
-    // =========================================================
-
-    @GetMapping
-    public List<ReservationResponse> getAllReservations() {
-
-        return reservationService.getAllReservations();
     }
 
 
@@ -175,6 +203,23 @@ public class ReservationController {
 
 
     // =========================================================
+    // UPDATE RESERVATION
+    // ADMIN ONLY
+    // =========================================================
+
+    @PutMapping("/{id}")
+    public ReservationResponse updateReservation(
+            @PathVariable Long id,
+            @Valid @RequestBody ReservationRequest request) {
+
+        return reservationService.updateReservation(
+                id,
+                request
+        );
+    }
+
+
+    // =========================================================
     // CANCEL RESERVATION
     // USER + ADMIN
     // =========================================================
@@ -199,5 +244,18 @@ public class ReservationController {
                 username,
                 isAdmin
         );
+    }
+
+
+    // =========================================================
+    // DELETE RESERVATION
+    // ADMIN ONLY
+    // =========================================================
+
+    @DeleteMapping("/{id}")
+    public void deleteReservation(
+            @PathVariable Long id) {
+
+        reservationService.deleteReservation(id);
     }
 }

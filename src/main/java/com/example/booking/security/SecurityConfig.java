@@ -19,6 +19,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+
     // =========================================================
     // PASSWORD ENCODER
     // =========================================================
@@ -52,15 +53,11 @@ public class SecurityConfig {
 
         http
 
-                // -------------------------------------------------
-                // Disable CSRF because this is a stateless REST API
-                // -------------------------------------------------
+                // Disable CSRF
                 .csrf(csrf -> csrf.disable())
 
 
-                // -------------------------------------------------
-                // JWT authentication is stateless
-                // -------------------------------------------------
+                // Stateless JWT authentication
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -68,30 +65,26 @@ public class SecurityConfig {
                 )
 
 
-                // -------------------------------------------------
                 // Authorization rules
-                // -------------------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
 
                         // =========================================
-                        // PUBLIC ENDPOINTS
+                        // PUBLIC
                         // =========================================
 
-                        // Login
                         .requestMatchers("/auth/**")
                         .permitAll()
 
-                        // Spring error endpoint
                         .requestMatchers("/error")
                         .permitAll()
 
 
                         // =========================================
-                        // RESOURCE ENDPOINTS
+                        // RESOURCES
                         // =========================================
 
-                        // USER + ADMIN can view resources
+                        // USER + ADMIN → GET
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/resources",
@@ -100,7 +93,7 @@ public class SecurityConfig {
                         .hasAnyRole("USER", "ADMIN")
 
 
-                        // ADMIN can create resources
+                        // ADMIN → CREATE
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/resources",
@@ -109,7 +102,7 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
 
 
-                        // ADMIN can update resources
+                        // ADMIN → UPDATE
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/resources",
@@ -118,7 +111,7 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
 
 
-                        // ADMIN can delete resources
+                        // ADMIN → DELETE
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/resources",
@@ -128,14 +121,71 @@ public class SecurityConfig {
 
 
                         // =========================================
-                        // RESERVATION ENDPOINTS
+                        // RESERVATIONS
                         // =========================================
 
-                        // USER + ADMIN can access reservations
+                        // USER + ADMIN → CREATE
                         .requestMatchers(
-                                "/api/reservations/**"
+                                HttpMethod.POST,
+                                "/api/reservations"
                         )
                         .hasAnyRole("USER", "ADMIN")
+
+
+                        // USER + ADMIN → MY RESERVATIONS
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/reservations/my"
+                        )
+                        .hasAnyRole("USER", "ADMIN")
+
+
+                        // ADMIN → ALL RESERVATIONS
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/reservations"
+                        )
+                        .hasRole("ADMIN")
+
+
+                        // ADMIN → FILTER
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/reservations/filter"
+                        )
+                        .hasRole("ADMIN")
+
+
+                        // USER + ADMIN → VIEW BY ID
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/reservations/*"
+                        )
+                        .hasAnyRole("USER", "ADMIN")
+
+
+                        // USER + ADMIN → CANCEL
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/reservations/*/cancel"
+                        )
+                        .hasAnyRole("USER", "ADMIN")
+
+
+                        // ADMIN → UPDATE
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/reservations/*"
+                        )
+                        .hasRole("ADMIN")
+
+
+                        // ADMIN → DELETE
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/reservations/*"
+                        )
+                        .hasRole("ADMIN")
 
 
                         // =========================================
@@ -147,10 +197,7 @@ public class SecurityConfig {
                 )
 
 
-                // -------------------------------------------------
-                // Add JWT filter before Spring's authentication
-                // filter
-                // -------------------------------------------------
+                // JWT filter
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

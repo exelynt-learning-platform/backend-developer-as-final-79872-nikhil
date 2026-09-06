@@ -99,7 +99,6 @@ public class ReservationService {
                 .build();
 
 
-        // Save
         Reservation savedReservation =
                 reservationRepository.save(reservation);
 
@@ -147,7 +146,6 @@ public class ReservationService {
                                 ));
 
 
-        // USER OWNERSHIP CHECK
         if (!isAdmin &&
                 !reservation.getUser()
                         .getUsername()
@@ -174,7 +172,6 @@ public class ReservationService {
             String username,
             boolean isAdmin) {
 
-        // Find reservation
         Reservation reservation =
                 reservationRepository.findById(id)
                         .orElseThrow(() ->
@@ -183,7 +180,6 @@ public class ReservationService {
                                 ));
 
 
-        // USER OWNERSHIP CHECK
         if (!isAdmin &&
                 !reservation.getUser()
                         .getUsername()
@@ -195,7 +191,6 @@ public class ReservationService {
         }
 
 
-        // Check already cancelled
         if (reservation.getStatus()
                 == ReservationStatus.CANCELLED) {
 
@@ -205,13 +200,11 @@ public class ReservationService {
         }
 
 
-        // Change status
         reservation.setStatus(
                 ReservationStatus.CANCELLED
         );
 
 
-        // Save
         Reservation updatedReservation =
                 reservationRepository.save(reservation);
 
@@ -234,7 +227,117 @@ public class ReservationService {
 
 
     // =========================================================
+    // ADMIN - UPDATE RESERVATION
+    // =========================================================
+
+    public ReservationResponse updateReservation(
+            Long id,
+            ReservationRequest request) {
+
+        Reservation reservation =
+                reservationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Reservation not found"
+                                ));
+
+
+        // Find resource
+        Resource resource =
+                resourceRepository.findById(
+                                request.getResourceId())
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Resource not found"
+                                ));
+
+
+        // Validate start time
+        if (request.getStartTime()
+                .isBefore(LocalDateTime.now())) {
+
+            throw new IllegalArgumentException(
+                    "Start time cannot be in the past"
+            );
+        }
+
+
+        // Validate end time
+        if (!request.getEndTime()
+                .isAfter(request.getStartTime())) {
+
+            throw new IllegalArgumentException(
+                    "End time must be after start time"
+            );
+        }
+
+
+        // Check overlap excluding current reservation
+        boolean overlapping =
+                reservationRepository
+                        .existsOverlappingReservationForUpdate(
+                                resource.getId(),
+                                reservation.getId(),
+                                request.getStartTime(),
+                                request.getEndTime()
+                        );
+
+
+        if (overlapping) {
+
+            throw new ResourceAlreadyBookedException(
+                    "Resource is already booked for the selected time"
+            );
+        }
+
+
+        // Update reservation
+        reservation.setResource(resource);
+
+        reservation.setStartTime(
+                request.getStartTime()
+        );
+
+        reservation.setEndTime(
+                request.getEndTime()
+        );
+
+
+        // Price always comes from resource
+        reservation.setPrice(
+                resource.getPrice()
+        );
+
+
+        Reservation updatedReservation =
+                reservationRepository.save(reservation);
+
+
+        return mapToResponse(updatedReservation);
+    }
+
+
+    // =========================================================
+    // ADMIN - DELETE RESERVATION
+    // =========================================================
+
+    public void deleteReservation(Long id) {
+
+        Reservation reservation =
+                reservationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Reservation not found"
+                                ));
+
+
+        reservationRepository.delete(reservation);
+    }
+
+
+    // =========================================================
     // FILTER + PAGINATION + SORTING
+    // ADMIN
     // =========================================================
 
     public Page<ReservationResponse> getReservationsWithFilters(

@@ -14,11 +14,19 @@ import java.time.LocalDateTime;
 public interface ReservationRepository
         extends JpaRepository<Reservation, Long> {
 
+    // =========================================================
+    // USER - GET OWN RESERVATIONS
+    // =========================================================
+
     Page<Reservation> findByUserId(
             Long userId,
             Pageable pageable
     );
 
+
+    // =========================================================
+    // CREATE - CHECK OVERLAPPING RESERVATION
+    // =========================================================
 
     @Query("""
             SELECT COUNT(r) > 0
@@ -34,6 +42,32 @@ public interface ReservationRepository
             @Param("endTime") LocalDateTime endTime
     );
 
+
+    // =========================================================
+    // UPDATE - CHECK OVERLAPPING RESERVATION
+    // Excludes the reservation currently being updated
+    // =========================================================
+
+    @Query("""
+            SELECT COUNT(r) > 0
+            FROM Reservation r
+            WHERE r.resource.id = :resourceId
+            AND r.id <> :reservationId
+            AND r.status <> 'CANCELLED'
+            AND r.startTime < :endTime
+            AND r.endTime > :startTime
+            """)
+    boolean existsOverlappingReservationForUpdate(
+            @Param("resourceId") Long resourceId,
+            @Param("reservationId") Long reservationId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+
+    // =========================================================
+    // FILTER + PAGINATION + SORTING
+    // =========================================================
 
     @Query("""
             SELECT r
