@@ -1,7 +1,7 @@
 package com.example.booking.service;
 
-import com.example.booking.dto.ResourceRequest;
-import com.example.booking.dto.ResourceResponse;
+import com.example.booking.dto.resource.ResourceRequest;
+import com.example.booking.dto.resource.ResourceResponse;
 import com.example.booking.entity.Resource;
 import com.example.booking.repository.ResourceRepository;
 import lombok.RequiredArgsConstructor;

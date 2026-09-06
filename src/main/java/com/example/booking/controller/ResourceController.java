@@ -1,7 +1,7 @@
 package com.example.booking.controller;
 
-import com.example.booking.dto.ResourceRequest;
-import com.example.booking.dto.ResourceResponse;
+import com.example.booking.dto.resource.ResourceRequest;
+import com.example.booking.dto.resource.ResourceResponse;
 import com.example.booking.service.ResourceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

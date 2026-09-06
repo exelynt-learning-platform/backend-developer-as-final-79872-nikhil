@@ -1,4 +1,4 @@
-package com.example.booking.dto;
+package com.example.booking.dto.resource;
 
 import lombok.*;
 
