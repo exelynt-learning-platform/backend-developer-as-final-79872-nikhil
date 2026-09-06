@@ -11,10 +11,12 @@ import com.example.booking.repository.ReservationRepository;
 import com.example.booking.repository.ResourceRepository;
 import com.example.booking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,21 +34,22 @@ public class ReservationService {
             ReservationRequest request,
             String username) {
 
-        // 1. Find logged-in user
+        // Find logged-in user from JWT
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
 
-        // 2. Find resource
+        // Find resource
         Resource resource = resourceRepository.findById(
                         request.getResourceId())
                 .orElseThrow(() ->
                         new RuntimeException("Resource not found"));
 
 
-        // 3. Validate start time
-        if (request.getStartTime().isBefore(LocalDateTime.now())) {
+        // Validate start time
+        if (request.getStartTime()
+                .isBefore(LocalDateTime.now())) {
 
             throw new IllegalArgumentException(
                     "Start time cannot be in the past"
@@ -54,8 +57,9 @@ public class ReservationService {
         }
 
 
-        // 4. Validate end time
-        if (!request.getEndTime().isAfter(request.getStartTime())) {
+        // Validate end time
+        if (!request.getEndTime()
+                .isAfter(request.getStartTime())) {
 
             throw new IllegalArgumentException(
                     "End time must be after start time"
@@ -63,13 +67,14 @@ public class ReservationService {
         }
 
 
-        // 5. Check overlapping reservation
+        // Check overlapping reservation
         boolean overlapping =
-                reservationRepository.existsOverlappingReservation(
-                        resource.getId(),
-                        request.getStartTime(),
-                        request.getEndTime()
-                );
+                reservationRepository
+                        .existsOverlappingReservation(
+                                resource.getId(),
+                                request.getStartTime(),
+                                request.getEndTime()
+                        );
 
 
         if (overlapping) {
@@ -80,7 +85,7 @@ public class ReservationService {
         }
 
 
-        // 6. Create reservation
+        // Create reservation
         Reservation reservation = Reservation.builder()
                 .user(user)
                 .resource(resource)
@@ -91,21 +96,23 @@ public class ReservationService {
                 .build();
 
 
-        // 7. Save reservation
+        // Save reservation
         Reservation savedReservation =
                 reservationRepository.save(reservation);
 
 
-        // 8. Return response
         return mapToResponse(savedReservation);
     }
 
 
     // =========================================================
     // GET MY RESERVATIONS
+    // USER + ADMIN
+    // PAGINATION + SORTING
     // =========================================================
-    public List<ReservationResponse> getMyReservations(
-            String username) {
+    public Page<ReservationResponse> getMyReservations(
+            String username,
+            Pageable pageable) {
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() ->
@@ -113,15 +120,17 @@ public class ReservationService {
 
 
         return reservationRepository
-                .findByUserId(user.getId())
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+                .findByUserId(
+                        user.getId(),
+                        pageable
+                )
+                .map(this::mapToResponse);
     }
 
 
     // =========================================================
     // GET RESERVATION BY ID
+    // USER + ADMIN
     // =========================================================
     public ReservationResponse getReservationById(
             Long id) {
@@ -139,13 +148,14 @@ public class ReservationService {
 
 
     // =========================================================
-    // CANCEL MY RESERVATION
+    // CANCEL RESERVATION
+    // USER + ADMIN
     // =========================================================
     public ReservationResponse cancelReservation(
             Long id,
             String username) {
 
-        // 1. Find reservation
+        // Find reservation
         Reservation reservation =
                 reservationRepository.findById(id)
                         .orElseThrow(() ->
@@ -154,7 +164,7 @@ public class ReservationService {
                                 ));
 
 
-        // 2. Check ownership
+        // Check ownership
         if (!reservation.getUser()
                 .getUsername()
                 .equals(username)) {
@@ -165,7 +175,7 @@ public class ReservationService {
         }
 
 
-        // 3. Check if already cancelled
+        // Check if already cancelled
         if (reservation.getStatus()
                 == ReservationStatus.CANCELLED) {
 
@@ -175,31 +185,51 @@ public class ReservationService {
         }
 
 
-        // 4. Change status
+        // Change status
         reservation.setStatus(
                 ReservationStatus.CANCELLED
         );
 
 
-        // 5. Save updated reservation
+        // Save updated reservation
         Reservation updatedReservation =
                 reservationRepository.save(reservation);
 
 
-        // 6. Return response
         return mapToResponse(updatedReservation);
     }
 
 
     // =========================================================
     // ADMIN - GET ALL RESERVATIONS
+    // PAGINATION + SORTING
     // =========================================================
-    public List<ReservationResponse> getAllReservations() {
+    public Page<ReservationResponse> getAllReservations(
+            Pageable pageable) {
 
-        return reservationRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        return reservationRepository
+                .findAll(pageable)
+                .map(this::mapToResponse);
+    }
+
+
+    // =========================================================
+    // FILTER + PAGINATION + SORTING
+    // =========================================================
+    public Page<ReservationResponse> getReservationsWithFilters(
+            ReservationStatus status,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Pageable pageable) {
+
+        return reservationRepository
+                .findWithFilters(
+                        status,
+                        minPrice,
+                        maxPrice,
+                        pageable
+                )
+                .map(this::mapToResponse);
     }
 
 
@@ -223,6 +253,10 @@ public class ReservationService {
 
                 .username(
                         reservation.getUser().getUsername()
+                )
+
+                .price(
+                        reservation.getPrice()
                 )
 
                 .startTime(

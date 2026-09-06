@@ -3,6 +3,7 @@ package com.example.booking.dto.reservation;
 import com.example.booking.entity.ReservationStatus;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -19,6 +20,8 @@ public class ReservationResponse {
     private String resourceName;
 
     private String username;
+
+    private BigDecimal price;
 
     private LocalDateTime startTime;
 
