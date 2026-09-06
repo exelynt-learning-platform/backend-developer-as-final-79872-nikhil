@@ -3,6 +3,7 @@ package com.example.booking.service;
 import com.example.booking.dto.reservation.ReservationRequest;
 import com.example.booking.dto.reservation.ReservationResponse;
 import com.example.booking.entity.Reservation;
+import com.example.booking.entity.ReservationStatus;
 import com.example.booking.entity.Resource;
 import com.example.booking.entity.User;
 import com.example.booking.repository.ReservationRepository;
@@ -21,39 +22,108 @@ public class ReservationService {
     private final ResourceRepository resourceRepository;
     private final UserRepository userRepository;
 
+
+    // CREATE RESERVATION
     public ReservationResponse createReservation(
             ReservationRequest request,
-            User user) {
+            String username) {
 
-        if (!request.getEndTime().isAfter(request.getStartTime())) {
-            throw new IllegalArgumentException(
-                    "End time must be after start time"
-            );
-        }
+        // Find logged-in user
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
 
-        Resource resource = resourceRepository.findById(request.getResourceId())
+        // Find resource
+        Resource resource = resourceRepository.findById(
+                        request.getResourceId())
                 .orElseThrow(() ->
                         new RuntimeException("Resource not found"));
 
+        // Create reservation
         Reservation reservation = Reservation.builder()
                 .user(user)
                 .resource(resource)
+
+                // Copy price from resource
+                .price(resource.getPrice())
+
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
-                .price(request.getPrice())
-                .status(
-                        request.getStatus() != null
-                                ? request.getStatus()
-                                : com.example.booking.entity.ReservationStatus.PENDING
-                )
+                .status(ReservationStatus.PENDING)
                 .build();
 
+        // Save reservation
         Reservation savedReservation =
                 reservationRepository.save(reservation);
 
         return mapToResponse(savedReservation);
     }
 
+
+    // GET MY RESERVATIONS
+    public List<ReservationResponse> getMyReservations(
+            String username) {
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        return reservationRepository
+                .findByUserId(user.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+
+    // GET RESERVATION BY ID
+    public ReservationResponse getReservationById(
+            Long id) {
+
+        Reservation reservation =
+                reservationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Reservation not found"));
+
+        return mapToResponse(reservation);
+    }
+
+
+    // CANCEL MY RESERVATION
+    public ReservationResponse cancelReservation(
+            Long id,
+            String username) {
+
+        Reservation reservation =
+                reservationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Reservation not found"));
+
+        // Check ownership
+        if (!reservation.getUser()
+                .getUsername()
+                .equals(username)) {
+
+            throw new RuntimeException(
+                    "You can only cancel your own reservation");
+        }
+
+        // Change status
+        reservation.setStatus(
+                ReservationStatus.CANCELLED
+        );
+
+        // Save updated reservation
+        Reservation updatedReservation =
+                reservationRepository.save(reservation);
+
+        return mapToResponse(updatedReservation);
+    }
+
+
+    // ADMIN - GET ALL RESERVATIONS
     public List<ReservationResponse> getAllReservations() {
 
         return reservationRepository.findAll()
@@ -62,68 +132,32 @@ public class ReservationService {
                 .toList();
     }
 
-    public ReservationResponse getReservationById(Long id) {
 
-        Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Reservation not found"));
-
-        return mapToResponse(reservation);
-    }
-
-    public ReservationResponse updateReservation(
-            Long id,
-            ReservationRequest request) {
-
-        if (!request.getEndTime().isAfter(request.getStartTime())) {
-            throw new IllegalArgumentException(
-                    "End time must be after start time"
-            );
-        }
-
-        Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Reservation not found"));
-
-        Resource resource = resourceRepository.findById(request.getResourceId())
-                .orElseThrow(() ->
-                        new RuntimeException("Resource not found"));
-
-        reservation.setResource(resource);
-        reservation.setStartTime(request.getStartTime());
-        reservation.setEndTime(request.getEndTime());
-        reservation.setPrice(request.getPrice());
-
-        if (request.getStatus() != null) {
-            reservation.setStatus(request.getStatus());
-        }
-
-        Reservation updatedReservation =
-                reservationRepository.save(reservation);
-
-        return mapToResponse(updatedReservation);
-    }
-
-    public void deleteReservation(Long id) {
-
-        Reservation reservation = reservationRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("Reservation not found"));
-
-        reservationRepository.delete(reservation);
-    }
-
+    // ENTITY → RESPONSE DTO
     private ReservationResponse mapToResponse(
             Reservation reservation) {
 
         return ReservationResponse.builder()
                 .id(reservation.getId())
-                .userId(reservation.getUser().getId())
-                .resourceId(reservation.getResource().getId())
-                .startTime(reservation.getStartTime())
-                .endTime(reservation.getEndTime())
-                .price(reservation.getPrice())
-                .status(reservation.getStatus())
+
+                .resourceId(
+                        reservation.getResource().getId())
+
+                .resourceName(
+                        reservation.getResource().getName())
+
+                .username(
+                        reservation.getUser().getUsername())
+
+                .startTime(
+                        reservation.getStartTime())
+
+                .endTime(
+                        reservation.getEndTime())
+
+                .status(
+                        reservation.getStatus())
+
                 .build();
     }
 }

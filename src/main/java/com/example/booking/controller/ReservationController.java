@@ -2,76 +2,93 @@ package com.example.booking.controller;
 
 import com.example.booking.dto.reservation.ReservationRequest;
 import com.example.booking.dto.reservation.ReservationResponse;
-import com.example.booking.entity.User;
-import com.example.booking.repository.UserRepository;
 import com.example.booking.service.ReservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/reservations")
+@RequestMapping("/api/reservations")
 @RequiredArgsConstructor
 public class ReservationController {
 
     private final ReservationService reservationService;
-    private final UserRepository userRepository;
 
+
+    // ==============================
+    // CREATE RESERVATION
+    // USER + ADMIN
+    // ==============================
     @PostMapping
-    public ResponseEntity<ReservationResponse> createReservation(
+    public ReservationResponse createReservation(
             @Valid @RequestBody ReservationRequest request,
-            Principal principal) {
+            Authentication authentication) {
 
-        User user = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        String username = authentication.getName();
 
-        ReservationResponse response =
-                reservationService.createReservation(request, user);
-
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return reservationService.createReservation(
+                request,
+                username
+        );
     }
 
+
+    // ==============================
+    // GET MY RESERVATIONS
+    // USER + ADMIN
+    // ==============================
+    @GetMapping("/my")
+    public List<ReservationResponse> getMyReservations(
+            Authentication authentication) {
+
+        String username = authentication.getName();
+
+        return reservationService.getMyReservations(
+                username
+        );
+    }
+
+
+    // ==============================
+    // GET ALL RESERVATIONS
+    // ADMIN
+    // ==============================
     @GetMapping
-    public ResponseEntity<List<ReservationResponse>> getAllReservations() {
+    public List<ReservationResponse> getAllReservations() {
 
-        return ResponseEntity.ok(
-                reservationService.getAllReservations()
-        );
+        return reservationService.getAllReservations();
     }
 
+
+    // ==============================
+    // GET RESERVATION BY ID
+    // USER + ADMIN
+    // ==============================
     @GetMapping("/{id}")
-    public ResponseEntity<ReservationResponse> getReservationById(
+    public ReservationResponse getReservationById(
             @PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                reservationService.getReservationById(id)
-        );
+        return reservationService.getReservationById(id);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ReservationResponse> updateReservation(
+
+    // ==============================
+    // CANCEL RESERVATION
+    // USER + ADMIN
+    // ==============================
+    @PutMapping("/{id}/cancel")
+    public ReservationResponse cancelReservation(
             @PathVariable Long id,
-            @Valid @RequestBody ReservationRequest request) {
+            Authentication authentication) {
 
-        return ResponseEntity.ok(
-                reservationService.updateReservation(id, request)
+        String username = authentication.getName();
+
+        return reservationService.cancelReservation(
+                id,
+                username
         );
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteReservation(
-            @PathVariable Long id) {
-
-        reservationService.deleteReservation(id);
-
-        return ResponseEntity.noContent().build();
     }
 }
