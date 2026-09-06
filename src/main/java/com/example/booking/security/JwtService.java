@@ -21,47 +21,72 @@ public class JwtService {
     private long jwtExpiration;
 
     public String generateToken(String username) {
+
         return Jwts.builder()
                 .subject(username)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .expiration(
+                        new Date(
+                                System.currentTimeMillis()
+                                        + jwtExpiration
+                        )
+                )
                 .signWith(getSigningKey())
                 .compact();
     }
 
     public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+
+        return extractClaim(
+                token,
+                Claims::getSubject
+        );
     }
 
-    public boolean isTokenValid(String token, String username) {
-        String extractedUsername = extractUsername(token);
+    public boolean isTokenValid(
+            String token,
+            String username) {
 
-        return extractedUsername.equals(username) && !isTokenExpired(token);
+        String extractedUsername =
+                extractUsername(token);
+
+        return extractedUsername.equals(username)
+                && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+
+        return extractExpiration(token)
+                .before(new Date());
     }
 
     private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
+
+        return extractClaim(
+                token,
+                Claims::getExpiration
+        );
     }
 
     private <T> T extractClaim(
             String token,
             Function<Claims, T> claimsResolver) {
 
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        Claims claims =
+                Jwts.parser()
+                        .verifyWith(getSigningKey())
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
 
         return claimsResolver.apply(claims);
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+
+        byte[] keyBytes =
+                Decoders.BASE64.decode(secretKey);
+
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

@@ -18,7 +18,8 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+    public LoginResponse login(
+            @Valid @RequestBody LoginRequest request) {
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -27,7 +28,10 @@ public class AuthController {
                 )
         );
 
-        String token = jwtService.generateToken(request.getUsername());
+        String token =
+                jwtService.generateToken(
+                        request.getUsername()
+                );
 
         return new LoginResponse(token);
     }
