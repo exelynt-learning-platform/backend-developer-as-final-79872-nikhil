@@ -6,6 +6,7 @@ import com.example.booking.entity.Reservation;
 import com.example.booking.entity.ReservationStatus;
 import com.example.booking.entity.Resource;
 import com.example.booking.entity.User;
+import com.example.booking.exception.ResourceAlreadyBookedException;
 import com.example.booking.repository.ReservationRepository;
 import com.example.booking.repository.ResourceRepository;
 import com.example.booking.repository.UserRepository;
@@ -39,14 +40,25 @@ public class ReservationService {
                 .orElseThrow(() ->
                         new RuntimeException("Resource not found"));
 
+        // Check for overlapping reservation
+        boolean overlapping =
+                reservationRepository.existsOverlappingReservation(
+                        resource.getId(),
+                        request.getStartTime(),
+                        request.getEndTime()
+                );
+
+        if (overlapping) {
+            throw new ResourceAlreadyBookedException(
+                    "Resource is already booked for the selected time"
+            );
+        }
+
         // Create reservation
         Reservation reservation = Reservation.builder()
                 .user(user)
                 .resource(resource)
-
-                // Copy price from resource
                 .price(resource.getPrice())
-
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .status(ReservationStatus.PENDING)
@@ -139,25 +151,18 @@ public class ReservationService {
 
         return ReservationResponse.builder()
                 .id(reservation.getId())
-
                 .resourceId(
                         reservation.getResource().getId())
-
                 .resourceName(
                         reservation.getResource().getName())
-
                 .username(
                         reservation.getUser().getUsername())
-
                 .startTime(
                         reservation.getStartTime())
-
                 .endTime(
                         reservation.getEndTime())
-
                 .status(
                         reservation.getStatus())
-
                 .build();
     }
 }
