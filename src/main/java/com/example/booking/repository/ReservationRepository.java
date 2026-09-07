@@ -32,7 +32,7 @@ public interface ReservationRepository
             SELECT COUNT(r) > 0
             FROM Reservation r
             WHERE r.resource.id = :resourceId
-            AND r.status <> 'CANCELLED'
+            AND r.status <> com.example.booking.entity.ReservationStatus.CANCELLED
             AND r.startTime < :endTime
             AND r.endTime > :startTime
             """)
@@ -45,7 +45,7 @@ public interface ReservationRepository
 
     // =========================================================
     // UPDATE - CHECK OVERLAPPING RESERVATION
-    // Excludes the reservation currently being updated
+    // Excludes current reservation
     // =========================================================
 
     @Query("""
@@ -53,7 +53,7 @@ public interface ReservationRepository
             FROM Reservation r
             WHERE r.resource.id = :resourceId
             AND r.id <> :reservationId
-            AND r.status <> 'CANCELLED'
+            AND r.status <> com.example.booking.entity.ReservationStatus.CANCELLED
             AND r.startTime < :endTime
             AND r.endTime > :startTime
             """)

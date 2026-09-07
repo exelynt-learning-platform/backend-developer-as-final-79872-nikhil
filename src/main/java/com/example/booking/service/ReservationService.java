@@ -38,20 +38,32 @@ public class ReservationService {
             ReservationRequest request,
             String username) {
 
+        // -----------------------------------------------------
         // Find logged-in user
+        // -----------------------------------------------------
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new RuntimeException("User not found")
+                );
 
 
+        // -----------------------------------------------------
         // Find resource
+        // -----------------------------------------------------
+
         Resource resource = resourceRepository.findById(
-                        request.getResourceId())
+                        request.getResourceId()
+                )
                 .orElseThrow(() ->
-                        new RuntimeException("Resource not found"));
+                        new RuntimeException("Resource not found")
+                );
 
 
+        // -----------------------------------------------------
         // Validate start time
+        // -----------------------------------------------------
+
         if (request.getStartTime()
                 .isBefore(LocalDateTime.now())) {
 
@@ -61,7 +73,10 @@ public class ReservationService {
         }
 
 
+        // -----------------------------------------------------
         // Validate end time
+        // -----------------------------------------------------
+
         if (!request.getEndTime()
                 .isAfter(request.getStartTime())) {
 
@@ -71,7 +86,10 @@ public class ReservationService {
         }
 
 
+        // -----------------------------------------------------
         // Check overlapping reservation
+        // -----------------------------------------------------
+
         boolean overlapping =
                 reservationRepository.existsOverlappingReservation(
                         resource.getId(),
@@ -88,7 +106,10 @@ public class ReservationService {
         }
 
 
+        // -----------------------------------------------------
         // Create reservation
+        // -----------------------------------------------------
+
         Reservation reservation = Reservation.builder()
                 .user(user)
                 .resource(resource)
@@ -98,6 +119,10 @@ public class ReservationService {
                 .status(ReservationStatus.PENDING)
                 .build();
 
+
+        // -----------------------------------------------------
+        // Save reservation
+        // -----------------------------------------------------
 
         Reservation savedReservation =
                 reservationRepository.save(reservation);
@@ -118,7 +143,8 @@ public class ReservationService {
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new RuntimeException("User not found")
+                );
 
 
         return reservationRepository
@@ -143,8 +169,13 @@ public class ReservationService {
                         .orElseThrow(() ->
                                 new RuntimeException(
                                         "Reservation not found"
-                                ));
+                                )
+                        );
 
+
+        // -----------------------------------------------------
+        // USER OWNERSHIP CHECK
+        // -----------------------------------------------------
 
         if (!isAdmin &&
                 !reservation.getUser()
@@ -162,6 +193,142 @@ public class ReservationService {
 
 
     // =========================================================
+    // UPDATE RESERVATION
+    // ADMIN ONLY
+    // =========================================================
+
+    public ReservationResponse updateReservation(
+            Long id,
+            ReservationRequest request) {
+
+        // -----------------------------------------------------
+        // Find reservation
+        // -----------------------------------------------------
+
+        Reservation reservation =
+                reservationRepository.findById(id)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Reservation not found"
+                                )
+                        );
+
+
+        // -----------------------------------------------------
+        // Prevent updating cancelled reservation
+        // -----------------------------------------------------
+
+        if (reservation.getStatus()
+                == ReservationStatus.CANCELLED) {
+
+            throw new IllegalArgumentException(
+                    "Cancelled reservation cannot be updated"
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // Find new resource
+        // -----------------------------------------------------
+
+        Resource resource =
+                resourceRepository.findById(
+                                request.getResourceId()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Resource not found"
+                                )
+                        );
+
+
+        // -----------------------------------------------------
+        // Validate start time
+        // -----------------------------------------------------
+
+        if (request.getStartTime()
+                .isBefore(LocalDateTime.now())) {
+
+            throw new IllegalArgumentException(
+                    "Start time cannot be in the past"
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // Validate end time
+        // -----------------------------------------------------
+
+        if (!request.getEndTime()
+                .isAfter(request.getStartTime())) {
+
+            throw new IllegalArgumentException(
+                    "End time must be after start time"
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // Check overlapping reservation
+        // Exclude current reservation
+        // -----------------------------------------------------
+
+        boolean overlapping =
+                reservationRepository
+                        .existsOverlappingReservationForUpdate(
+                                resource.getId(),
+                                reservation.getId(),
+                                request.getStartTime(),
+                                request.getEndTime()
+                        );
+
+
+        if (overlapping) {
+
+            throw new ResourceAlreadyBookedException(
+                    "Resource is already booked for the selected time"
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // Update reservation
+        // -----------------------------------------------------
+
+        reservation.setResource(resource);
+
+        reservation.setStartTime(
+                request.getStartTime()
+        );
+
+        reservation.setEndTime(
+                request.getEndTime()
+        );
+
+
+        // -----------------------------------------------------
+        // Price always comes from resource
+        // Client cannot control reservation price
+        // -----------------------------------------------------
+
+        reservation.setPrice(
+                resource.getPrice()
+        );
+
+
+        // -----------------------------------------------------
+        // Save
+        // -----------------------------------------------------
+
+        Reservation updatedReservation =
+                reservationRepository.save(reservation);
+
+
+        return mapToResponse(updatedReservation);
+    }
+
+
+    // =========================================================
     // CANCEL RESERVATION
     // USER CAN CANCEL OWN
     // ADMIN CAN CANCEL ANY
@@ -172,13 +339,22 @@ public class ReservationService {
             String username,
             boolean isAdmin) {
 
+        // -----------------------------------------------------
+        // Find reservation
+        // -----------------------------------------------------
+
         Reservation reservation =
                 reservationRepository.findById(id)
                         .orElseThrow(() ->
                                 new RuntimeException(
                                         "Reservation not found"
-                                ));
+                                )
+                        );
 
+
+        // -----------------------------------------------------
+        // USER OWNERSHIP CHECK
+        // -----------------------------------------------------
 
         if (!isAdmin &&
                 !reservation.getUser()
@@ -191,19 +367,31 @@ public class ReservationService {
         }
 
 
+        // -----------------------------------------------------
+        // Check already cancelled
+        // -----------------------------------------------------
+
         if (reservation.getStatus()
                 == ReservationStatus.CANCELLED) {
 
-            throw new RuntimeException(
+            throw new IllegalArgumentException(
                     "Reservation is already cancelled"
             );
         }
 
 
+        // -----------------------------------------------------
+        // Change status
+        // -----------------------------------------------------
+
         reservation.setStatus(
                 ReservationStatus.CANCELLED
         );
 
+
+        // -----------------------------------------------------
+        // Save
+        // -----------------------------------------------------
 
         Reservation updatedReservation =
                 reservationRepository.save(reservation);
@@ -227,97 +415,6 @@ public class ReservationService {
 
 
     // =========================================================
-    // ADMIN - UPDATE RESERVATION
-    // =========================================================
-
-    public ReservationResponse updateReservation(
-            Long id,
-            ReservationRequest request) {
-
-        Reservation reservation =
-                reservationRepository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Reservation not found"
-                                ));
-
-
-        // Find resource
-        Resource resource =
-                resourceRepository.findById(
-                                request.getResourceId())
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Resource not found"
-                                ));
-
-
-        // Validate start time
-        if (request.getStartTime()
-                .isBefore(LocalDateTime.now())) {
-
-            throw new IllegalArgumentException(
-                    "Start time cannot be in the past"
-            );
-        }
-
-
-        // Validate end time
-        if (!request.getEndTime()
-                .isAfter(request.getStartTime())) {
-
-            throw new IllegalArgumentException(
-                    "End time must be after start time"
-            );
-        }
-
-
-        // Check overlap excluding current reservation
-        boolean overlapping =
-                reservationRepository
-                        .existsOverlappingReservationForUpdate(
-                                resource.getId(),
-                                reservation.getId(),
-                                request.getStartTime(),
-                                request.getEndTime()
-                        );
-
-
-        if (overlapping) {
-
-            throw new ResourceAlreadyBookedException(
-                    "Resource is already booked for the selected time"
-            );
-        }
-
-
-        // Update reservation
-        reservation.setResource(resource);
-
-        reservation.setStartTime(
-                request.getStartTime()
-        );
-
-        reservation.setEndTime(
-                request.getEndTime()
-        );
-
-
-        // Price always comes from resource
-        reservation.setPrice(
-                resource.getPrice()
-        );
-
-
-        Reservation updatedReservation =
-                reservationRepository.save(reservation);
-
-
-        return mapToResponse(updatedReservation);
-    }
-
-
-    // =========================================================
     // ADMIN - DELETE RESERVATION
     // =========================================================
 
@@ -328,8 +425,8 @@ public class ReservationService {
                         .orElseThrow(() ->
                                 new RuntimeException(
                                         "Reservation not found"
-                                ));
-
+                                )
+                        );
 
         reservationRepository.delete(reservation);
     }
@@ -337,7 +434,6 @@ public class ReservationService {
 
     // =========================================================
     // FILTER + PAGINATION + SORTING
-    // ADMIN
     // =========================================================
 
     public Page<ReservationResponse> getReservationsWithFilters(
@@ -366,7 +462,9 @@ public class ReservationService {
 
         return ReservationResponse.builder()
 
-                .id(reservation.getId())
+                .id(
+                        reservation.getId()
+                )
 
                 .resourceId(
                         reservation.getResource().getId()

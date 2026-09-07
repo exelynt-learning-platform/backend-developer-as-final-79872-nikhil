@@ -15,28 +15,24 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     // =========================================================
-    // RESOURCE ALREADY BOOKED - 409 CONFLICT
+    // RESOURCE ALREADY BOOKED
+    // 409 CONFLICT
     // =========================================================
 
     @ExceptionHandler(ResourceAlreadyBookedException.class)
     public ResponseEntity<Map<String, Object>> handleResourceAlreadyBooked(
             ResourceAlreadyBookedException exception) {
 
-        Map<String, Object> response = new HashMap<>();
-
-        response.put("timestamp", LocalDateTime.now());
-        response.put("status", HttpStatus.CONFLICT.value());
-        response.put("error", "Conflict");
-        response.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(response);
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage()
+        );
     }
 
 
     // =========================================================
-    // VALIDATION ERRORS - 400 BAD REQUEST
+    // VALIDATION ERRORS
+    // 400 BAD REQUEST
     // =========================================================
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -69,64 +65,102 @@ public class GlobalExceptionHandler {
 
 
     // =========================================================
-    // ACCESS DENIED - 403 FORBIDDEN
+    // ACCESS DENIED
+    // 403 FORBIDDEN
     // =========================================================
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(
             AccessDeniedException exception) {
 
-        Map<String, Object> response = new HashMap<>();
-
-        response.put("timestamp", LocalDateTime.now());
-        response.put("status", HttpStatus.FORBIDDEN.value());
-        response.put("error", "Forbidden");
-        response.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(response);
+        return buildResponse(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage()
+        );
     }
 
 
     // =========================================================
-    // RUNTIME EXCEPTIONS - 400 BAD REQUEST
+    // RESOURCE NOT FOUND
+    // 404 NOT FOUND
+    // =========================================================
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceNotFound(
+            ResourceNotFoundException exception) {
+
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage()
+        );
+    }
+
+
+    // =========================================================
+    // ILLEGAL ARGUMENT
+    // 400 BAD REQUEST
+    // =========================================================
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(
+            IllegalArgumentException exception) {
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage()
+        );
+    }
+
+
+    // =========================================================
+    // OTHER RUNTIME EXCEPTIONS
+    // 400 BAD REQUEST
     // =========================================================
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(
             RuntimeException exception) {
 
-        Map<String, Object> response = new HashMap<>();
-
-        response.put("timestamp", LocalDateTime.now());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Bad Request");
-        response.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(response);
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage()
+        );
     }
 
 
     // =========================================================
-    // ALL OTHER EXCEPTIONS - 500 INTERNAL SERVER ERROR
+    // ALL OTHER EXCEPTIONS
+    // 500 INTERNAL SERVER ERROR
     // =========================================================
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(
             Exception exception) {
 
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred"
+        );
+    }
+
+
+    // =========================================================
+    // COMMON RESPONSE BUILDER
+    // =========================================================
+
+    private ResponseEntity<Map<String, Object>> buildResponse(
+            HttpStatus status,
+            String message) {
+
         Map<String, Object> response = new HashMap<>();
 
         response.put("timestamp", LocalDateTime.now());
-        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.put("error", "Internal Server Error");
-        response.put("message", "An unexpected error occurred");
+        response.put("status", status.value());
+        response.put("error", status.getReasonPhrase());
+        response.put("message", message);
 
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .status(status)
                 .body(response);
     }
 }

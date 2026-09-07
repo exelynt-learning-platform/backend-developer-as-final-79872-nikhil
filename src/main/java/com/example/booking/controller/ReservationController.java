@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,16 +31,19 @@ public class ReservationController {
     // =========================================================
 
     @PostMapping
-    public ReservationResponse createReservation(
+    public ResponseEntity<ReservationResponse> createReservation(
             @Valid @RequestBody ReservationRequest request,
             Authentication authentication) {
 
         String username = authentication.getName();
 
-        return reservationService.createReservation(
-                request,
-                username
-        );
+        ReservationResponse response =
+                reservationService.createReservation(
+                        request,
+                        username
+                );
+
+        return ResponseEntity.ok(response);
     }
 
 
@@ -103,17 +107,37 @@ public class ReservationController {
             @RequestParam(defaultValue = "asc")
             String direction) {
 
+        // ---------------------------------------------------------
+        // Validate page
+        // ---------------------------------------------------------
+
         if (page < 0) {
             throw new IllegalArgumentException(
                     "Page must be 0 or greater"
             );
         }
 
+
+        // ---------------------------------------------------------
+        // Validate size
+        // ---------------------------------------------------------
+
         if (size <= 0) {
             throw new IllegalArgumentException(
                     "Size must be greater than 0"
             );
         }
+
+        if (size > 100) {
+            throw new IllegalArgumentException(
+                    "Size cannot be greater than 100"
+            );
+        }
+
+
+        // ---------------------------------------------------------
+        // Validate minimum price
+        // ---------------------------------------------------------
 
         if (minPrice != null &&
                 minPrice.compareTo(BigDecimal.ZERO) < 0) {
@@ -123,6 +147,11 @@ public class ReservationController {
             );
         }
 
+
+        // ---------------------------------------------------------
+        // Validate maximum price
+        // ---------------------------------------------------------
+
         if (maxPrice != null &&
                 maxPrice.compareTo(BigDecimal.ZERO) < 0) {
 
@@ -130,6 +159,11 @@ public class ReservationController {
                     "Maximum price cannot be negative"
             );
         }
+
+
+        // ---------------------------------------------------------
+        // Validate price range
+        // ---------------------------------------------------------
 
         if (minPrice != null &&
                 maxPrice != null &&
@@ -141,14 +175,30 @@ public class ReservationController {
         }
 
 
+        // ---------------------------------------------------------
+        // Sorting
+        // ---------------------------------------------------------
+
         Sort sort = Sort.unsorted();
 
         if (sortBy != null && !sortBy.isBlank()) {
 
-            Sort.Direction sortDirection =
-                    direction.equalsIgnoreCase("desc")
-                            ? Sort.Direction.DESC
-                            : Sort.Direction.ASC;
+            Sort.Direction sortDirection;
+
+            if (direction.equalsIgnoreCase("desc")) {
+
+                sortDirection = Sort.Direction.DESC;
+
+            } else if (direction.equalsIgnoreCase("asc")) {
+
+                sortDirection = Sort.Direction.ASC;
+
+            } else {
+
+                throw new IllegalArgumentException(
+                        "Direction must be 'asc' or 'desc'"
+                );
+            }
 
             sort = Sort.by(
                     sortDirection,
@@ -157,6 +207,10 @@ public class ReservationController {
         }
 
 
+        // ---------------------------------------------------------
+        // Pageable
+        // ---------------------------------------------------------
+
         Pageable pageable =
                 PageRequest.of(
                         page,
@@ -164,6 +218,10 @@ public class ReservationController {
                         sort
                 );
 
+
+        // ---------------------------------------------------------
+        // Service
+        // ---------------------------------------------------------
 
         return reservationService.getReservationsWithFilters(
                 status,
