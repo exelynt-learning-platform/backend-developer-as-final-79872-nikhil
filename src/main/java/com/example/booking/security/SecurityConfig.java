@@ -79,6 +79,17 @@ public class SecurityConfig {
                         .requestMatchers("/error")
                         .permitAll()
 
+                        // =========================================
+                        // SWAGGER / OPENAPI
+
+                        // =========================================
+
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        )
+                        .permitAll()
 
                         // =========================================
                         // RESOURCES
